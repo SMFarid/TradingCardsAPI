@@ -43,7 +43,9 @@ public class CardController : ControllerBase
             Code = dto.Code,
             Version = dto.Version,
             Rarity = dto.Rarity,
-            ImageUrl = dto.ImageUrl
+            ImageUrl = dto.ImageUrl,
+            IsFoil = dto.IsFoil,
+            MarketPrice = dto.MarketPrice
         });
 
         return Ok(new
@@ -54,6 +56,8 @@ public class CardController : ControllerBase
             card.Version,
             card.Rarity,
             card.ImageUrl,
+            card.IsFoil,
+            card.MarketPrice,
             Game = card.Game?.Name
         });
     }

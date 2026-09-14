@@ -19,6 +19,8 @@ public record CardCandidate(
     string Version,
     string Rarity,
     string ImageUrl,
+    bool IsFoil,
+    decimal? MarketPrice,
     string Source);
 
 /// <summary>
@@ -30,7 +32,7 @@ public class CardLookupService
 {
     public const string MtgGameName = "Magic: The Gathering";
     public const string DigimonGameName = "Digimon Card Game";
-    private const int MaxCandidates = 12;
+    private const int MaxCandidates = 20;
 
     // Digimon codes: BT1-010, ST1-03, EX1-001, RB1-004, LM-020, P-001
     private static readonly Regex DigimonCodeRegex =
@@ -81,8 +83,18 @@ public class CardLookupService
 
         var existing = await _context.Cards
             .Include(c => c.Game)
-            .FirstOrDefaultAsync(c => c.Code == card.Code && c.Game!.Name == gameName);
-        if (existing != null) return existing;
+            .FirstOrDefaultAsync(c =>
+                c.Code == card.Code && c.IsFoil == card.IsFoil && c.Game!.Name == gameName);
+        if (existing != null)
+        {
+            // Refresh the stored market price with the latest quote.
+            if (card.MarketPrice != null && existing.MarketPrice != card.MarketPrice)
+            {
+                existing.MarketPrice = card.MarketPrice;
+                await _context.SaveChangesAsync();
+            }
+            return existing;
+        }
 
         card.Game = game;
         _context.Cards.Add(card);
@@ -151,6 +163,8 @@ public class CardLookupService
                 setName,
                 entry.TryGetProperty("rarity", out var r) ? r.GetString() ?? "" : "",
                 $"https://images.digimoncard.io/images/cards/{cardCode}.jpg",
+                false,
+                null, // digimoncard.io has no pricing data
                 "digimoncard.io"));
         }
         return results;
@@ -186,7 +200,7 @@ public class CardLookupService
                 if (printsUri != null)
                     candidates.AddRange(await GetScryfallPrintsAsync(printsUri));
                 else
-                    candidates.Add(ScryfallToCandidate(root));
+                    candidates.AddRange(ScryfallToCandidates(root));
 
                 var deduped = Dedupe(candidates);
                 if (deduped.Count > 0) return deduped;
@@ -211,12 +225,16 @@ public class CardLookupService
             return new List<CardCandidate>();
 
         return data.EnumerateArray()
+            .SelectMany(ScryfallToCandidates)
             .Take(MaxCandidates)
-            .Select(ScryfallToCandidate)
             .ToList();
     }
 
-    private static CardCandidate ScryfallToCandidate(JsonElement card)
+    /// <summary>
+    /// One printing can exist in several finishes; foil and non-foil become separate
+    /// candidates, each with its own TCGplayer market price (Scryfall's usd prices).
+    /// </summary>
+    private static List<CardCandidate> ScryfallToCandidates(JsonElement card)
     {
         var set = card.GetProperty("set").GetString()?.ToUpperInvariant() ?? "";
         var collectorNumber = card.GetProperty("collector_number").GetString() ?? "";
@@ -229,7 +247,26 @@ public class CardLookupService
                  && faces[0].TryGetProperty("image_uris", out var faceImages))
             imageUrl = faceImages.GetProperty("normal").GetString() ?? "";
 
-        return new CardCandidate(
+        decimal? priceUsd = null, priceUsdFoil = null;
+        if (card.TryGetProperty("prices", out var prices))
+        {
+            priceUsd = ParsePrice(prices, "usd");
+            priceUsdFoil = ParsePrice(prices, "usd_foil");
+        }
+
+        bool hasNonfoil = true, hasFoil = false;
+        if (card.TryGetProperty("finishes", out var finishes)
+            && finishes.ValueKind == JsonValueKind.Array)
+        {
+            var list = finishes.EnumerateArray()
+                .Select(f => f.GetString())
+                .Where(f => f != null)
+                .ToList();
+            hasNonfoil = list.Contains("nonfoil");
+            hasFoil = list.Contains("foil") || list.Contains("etched");
+        }
+
+        CardCandidate Make(bool foil) => new(
             null,
             MtgGameName,
             card.GetProperty("name").GetString() ?? "",
@@ -237,19 +274,37 @@ public class CardLookupService
             card.TryGetProperty("set_name", out var sn) ? sn.GetString() ?? "" : "",
             card.TryGetProperty("rarity", out var r) ? r.GetString() ?? "" : "",
             imageUrl,
+            foil,
+            foil ? priceUsdFoil : priceUsd,
             "scryfall");
+
+        var results = new List<CardCandidate>();
+        if (hasNonfoil) results.Add(Make(false));
+        if (hasFoil) results.Add(Make(true));
+        return results;
+    }
+
+    private static decimal? ParsePrice(JsonElement prices, string key)
+    {
+        if (prices.TryGetProperty(key, out var value)
+            && value.ValueKind == JsonValueKind.String
+            && decimal.TryParse(value.GetString(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            return parsed;
+        return null;
     }
 
     private static CardCandidate ToCandidate(Card card, string source) =>
         new(card.Id, card.Game?.Name ?? "", card.Name, card.Code,
-            card.Version, card.Rarity, card.ImageUrl, source);
+            card.Version, card.Rarity, card.ImageUrl, card.IsFoil, card.MarketPrice, source);
 
     /// <summary>Removes duplicate printings, keeping the first occurrence (internal matches come first).</summary>
     private static List<CardCandidate> Dedupe(List<CardCandidate> candidates)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         return candidates
-            .Where(c => seen.Add($"{c.Game}|{c.Code}"))
+            .Where(c => seen.Add($"{c.Game}|{c.Code}|{c.IsFoil}"))
             .Take(MaxCandidates)
             .ToList();
     }

@@ -31,6 +31,8 @@ public class ResolveCardDto
     public string Version { get; set; } = string.Empty;
     public string Rarity { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
+    public bool IsFoil { get; set; } = false;
+    public decimal? MarketPrice { get; set; }
 }
 
 public class RenameCollectionDto

@@ -27,7 +27,8 @@ public class CollectionController : ControllerBase
                 c.Id,
                 c.Name,
                 c.CreatedAt,
-                CardCount = c.Items!.Sum(i => (int?)i.Quantity) ?? 0
+                CardCount = c.Items!.Sum(i => (int?)i.Quantity) ?? 0,
+                TotalValue = c.Items!.Sum(i => (decimal?)(i.Quantity * (i.Card!.MarketPrice ?? 0))) ?? 0
             })
             .ToListAsync();
 
@@ -56,6 +57,8 @@ public class CollectionController : ControllerBase
                         i.Card.Version,
                         i.Card.Rarity,
                         i.Card.ImageUrl,
+                        i.Card.IsFoil,
+                        i.Card.MarketPrice,
                         Game = i.Card.Game!.Name
                     }
                 })
