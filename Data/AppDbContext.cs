@@ -13,9 +13,15 @@ public class AppDbContext : DbContext
     public DbSet<SellerStock> SellerStocks { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<Collection> Collections { get; set; }
+    public DbSet<CollectionCard> CollectionCards { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CollectionCard>()
+            .HasIndex(cc => new { cc.CollectionId, cc.CardId })
+            .IsUnique();
+
         modelBuilder.Entity<Order>()
             .HasOne(o => o.Buyer)
             .WithMany(u => u.BuyerOrders)

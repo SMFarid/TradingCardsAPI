@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
+using TradingCardsAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -7,6 +8,14 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Card identification via external TCG APIs (Scryfall requires a User-Agent header).
+builder.Services.AddHttpClient<CardLookupService>(client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("CardVault/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 builder.Services.AddCors(options =>
 {

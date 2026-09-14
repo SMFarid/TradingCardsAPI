@@ -121,3 +121,4 @@ D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\TradingCardsAPI.p
 D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\TradingCardsAPI.genruntimeconfig.cache
 D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\ref\TradingCardsAPI.dll
 D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\TradingCardsAPI.sourcelink.json
