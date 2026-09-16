@@ -2,7 +2,6 @@ namespace TradingCardsAPI.DTOs;
 
 public class AddStockDto
 {
-    public int UserId { get; set; }
     public int CardId { get; set; }
     public int Quantity { get; set; }
     public decimal Price { get; set; }
@@ -10,7 +9,6 @@ public class AddStockDto
 
 public class CreateOrderDto
 {
-    public int BuyerId { get; set; }
     public int SellerId { get; set; }
     public List<OrderItemDto> Items { get; set; } = new();
 }

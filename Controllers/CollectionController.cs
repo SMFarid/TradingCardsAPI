@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
@@ -7,6 +9,7 @@ using TradingCardsAPI.Models;
 namespace TradingCardsAPI.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class CollectionController : ControllerBase
 {
@@ -17,9 +20,13 @@ public class CollectionController : ControllerBase
         _context = context;
     }
 
-    [HttpGet("user/{userId}")]
-    public async Task<IActionResult> GetUserCollections(int userId)
+    private int CurrentUserId =>
+        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    [HttpGet]
+    public async Task<IActionResult> GetMyCollections()
     {
+        var userId = CurrentUserId;
         var collections = await _context.Collections
             .Where(c => c.UserId == userId)
             .Select(c => new
@@ -38,8 +45,9 @@ public class CollectionController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetCollection(int id)
     {
+        var userId = CurrentUserId;
         var collection = await _context.Collections
-            .Where(c => c.Id == id)
+            .Where(c => c.Id == id && c.UserId == userId)
             .Select(c => new
             {
                 c.Id,
@@ -72,34 +80,34 @@ public class CollectionController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateCollection([FromBody] CreateCollectionDto dto)
     {
-        if (!await _context.Users.AnyAsync(u => u.Id == dto.UserId))
-            return BadRequest("User not found.");
-
+        var userId = CurrentUserId;
         var name = dto.Name.Trim();
         if (name.Length == 0) return BadRequest("Collection name is required.");
 
         var exists = await _context.Collections
-            .AnyAsync(c => c.UserId == dto.UserId && c.Name.ToLower() == name.ToLower());
+            .AnyAsync(c => c.UserId == userId && c.Name.ToLower() == name.ToLower());
         if (exists) return BadRequest("You already have a collection with that name.");
 
-        var collection = new Collection { UserId = dto.UserId, Name = name };
+        var collection = new Collection { UserId = userId, Name = name };
         _context.Collections.Add(collection);
         await _context.SaveChangesAsync();
 
-        return Ok(new { collection.Id, collection.Name, collection.CreatedAt, CardCount = 0 });
+        return Ok(new { collection.Id, collection.Name, collection.CreatedAt, CardCount = 0, TotalValue = 0m });
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> RenameCollection(int id, [FromBody] RenameCollectionDto dto)
     {
-        var collection = await _context.Collections.FindAsync(id);
+        var userId = CurrentUserId;
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
         if (collection == null) return NotFound("Collection not found.");
 
         var name = dto.Name.Trim();
         if (name.Length == 0) return BadRequest("Collection name is required.");
 
         var exists = await _context.Collections
-            .AnyAsync(c => c.UserId == collection.UserId && c.Id != id && c.Name.ToLower() == name.ToLower());
+            .AnyAsync(c => c.UserId == userId && c.Id != id && c.Name.ToLower() == name.ToLower());
         if (exists) return BadRequest("You already have a collection with that name.");
 
         collection.Name = name;
@@ -110,7 +118,9 @@ public class CollectionController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCollection(int id)
     {
-        var collection = await _context.Collections.FindAsync(id);
+        var userId = CurrentUserId;
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
         if (collection == null) return NotFound("Collection not found.");
 
         _context.Collections.Remove(collection);
@@ -118,36 +128,12 @@ public class CollectionController : ControllerBase
         return Ok(new { message = "Collection deleted." });
     }
 
-    [HttpPut("{id}/cards/{itemId}")]
-    public async Task<IActionResult> UpdateCardQuantity(int id, int itemId, [FromBody] UpdateCollectionCardDto dto)
-    {
-        var item = await _context.CollectionCards
-            .FirstOrDefaultAsync(cc => cc.Id == itemId && cc.CollectionId == id);
-        if (item == null) return NotFound("Card not found in collection.");
-
-        if (dto.Quantity < 1) return BadRequest("Quantity must be at least 1.");
-
-        item.Quantity = dto.Quantity;
-        await _context.SaveChangesAsync();
-        return Ok(new { item.Id, item.CollectionId, item.CardId, item.Quantity });
-    }
-
-    [HttpDelete("{id}/cards/{itemId}")]
-    public async Task<IActionResult> RemoveCardFromCollection(int id, int itemId)
-    {
-        var item = await _context.CollectionCards
-            .FirstOrDefaultAsync(cc => cc.Id == itemId && cc.CollectionId == id);
-        if (item == null) return NotFound("Card not found in collection.");
-
-        _context.CollectionCards.Remove(item);
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Card removed from collection." });
-    }
-
     [HttpPost("{id}/cards")]
     public async Task<IActionResult> AddCardToCollection(int id, [FromBody] AddCollectionCardDto dto)
     {
-        var collection = await _context.Collections.FindAsync(id);
+        var userId = CurrentUserId;
+        var collection = await _context.Collections
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
         if (collection == null) return NotFound("Collection not found.");
 
         if (!await _context.Cards.AnyAsync(c => c.Id == dto.CardId))
@@ -170,5 +156,35 @@ public class CollectionController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok(new { item.Id, item.CollectionId, item.CardId, item.Quantity });
+    }
+
+    [HttpPut("{id}/cards/{itemId}")]
+    public async Task<IActionResult> UpdateCardQuantity(int id, int itemId, [FromBody] UpdateCollectionCardDto dto)
+    {
+        var userId = CurrentUserId;
+        var item = await _context.CollectionCards
+            .FirstOrDefaultAsync(cc =>
+                cc.Id == itemId && cc.CollectionId == id && cc.Collection!.UserId == userId);
+        if (item == null) return NotFound("Card not found in collection.");
+
+        if (dto.Quantity < 1) return BadRequest("Quantity must be at least 1.");
+
+        item.Quantity = dto.Quantity;
+        await _context.SaveChangesAsync();
+        return Ok(new { item.Id, item.CollectionId, item.CardId, item.Quantity });
+    }
+
+    [HttpDelete("{id}/cards/{itemId}")]
+    public async Task<IActionResult> RemoveCardFromCollection(int id, int itemId)
+    {
+        var userId = CurrentUserId;
+        var item = await _context.CollectionCards
+            .FirstOrDefaultAsync(cc =>
+                cc.Id == itemId && cc.CollectionId == id && cc.Collection!.UserId == userId);
+        if (item == null) return NotFound("Card not found in collection.");
+
+        _context.CollectionCards.Remove(item);
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Card removed from collection." });
     }
 }

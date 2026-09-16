@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
@@ -8,6 +9,7 @@ using TradingCardsAPI.Services;
 namespace TradingCardsAPI.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class CardController : ControllerBase
 {
@@ -62,6 +64,7 @@ public class CardController : ControllerBase
         });
     }
 
+    [AllowAnonymous]
     [HttpGet("by-game/{gameId}")]
     public async Task<IActionResult> GetCardsByGame(int gameId)
     {

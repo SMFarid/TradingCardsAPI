@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
 using TradingCardsAPI.DTOs;
 using TradingCardsAPI.Models;
+using TradingCardsAPI.Services;
 
 namespace TradingCardsAPI.Controllers;
 
@@ -11,10 +12,12 @@ namespace TradingCardsAPI.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly TokenService _tokenService;
 
-    public AuthController(AppDbContext context)
+    public AuthController(AppDbContext context, TokenService tokenService)
     {
         _context = context;
+        _tokenService = tokenService;
     }
 
     [HttpPost("register")]
@@ -23,29 +26,31 @@ public class AuthController : ControllerBase
         if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
             return BadRequest("Email already exists.");
 
-        // NOTE: In production, hash the password (e.g., using BCrypt)!
+        if (dto.Password.Length < 6)
+            return BadRequest("Password must be at least 6 characters.");
+
         var user = new User
         {
             FullName = dto.FullName,
             Email = dto.Email,
-            PasswordHash = dto.Password, // PLAIN TEXT for demo purposes only
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             Role = dto.Role
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return Ok(new { user.Id, user.Email, user.Role, Token = "fake-jwt-token" });
+        return Ok(AuthResponse(user));
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-        if (user == null || user.PasswordHash != dto.Password)
+        if (user == null || !await VerifyPasswordAsync(user, dto.Password))
             return Unauthorized("Invalid credentials.");
 
-        return Ok(new { user.Id, user.Email, user.Role, Token = "fake-jwt-token" });
+        return Ok(AuthResponse(user));
     }
 
     [HttpPost("forgot-password")]
@@ -55,7 +60,6 @@ public class AuthController : ControllerBase
         if (user == null)
             return NotFound("No account found with that email.");
 
-        // Generate a simple 8-char alphanumeric token (demo only — use a secure random in production)
         user.PasswordResetToken = Guid.NewGuid().ToString("N")[..8].ToUpper();
         user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
 
@@ -75,8 +79,10 @@ public class AuthController : ControllerBase
         if (user == null)
             return BadRequest("Invalid or expired reset token.");
 
-        // NOTE: In production, hash the password!
-        user.PasswordHash = dto.NewPassword; // PLAIN TEXT for demo purposes only
+        if (dto.NewPassword.Length < 6)
+            return BadRequest("Password must be at least 6 characters.");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         user.PasswordResetToken = null;
         user.PasswordResetTokenExpiry = null;
 
@@ -84,4 +90,41 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Password reset successfully." });
     }
+
+    /// <summary>
+    /// Verifies against the BCrypt hash. Accounts created before hashing was
+    /// introduced stored plaintext; on a successful legacy match the password
+    /// is transparently upgraded to a BCrypt hash.
+    /// </summary>
+    private async Task<bool> VerifyPasswordAsync(User user, string password)
+    {
+        if (user.PasswordHash.StartsWith("$2"))
+        {
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                return false;
+            }
+        }
+
+        if (user.PasswordHash == password)
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        return false;
+    }
+
+    private object AuthResponse(User user) => new
+    {
+        user.Id,
+        user.Email,
+        user.Role,
+        user.FullName,
+        Token = _tokenService.CreateToken(user)
+    };
 }

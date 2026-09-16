@@ -4,7 +4,6 @@ namespace TradingCardsAPI.DTOs;
 
 public class CreateCollectionDto
 {
-    public int UserId { get; set; }
     [Required]
     public string Name { get; set; } = string.Empty;
 }

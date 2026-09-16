@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
@@ -11,28 +13,51 @@ namespace TradingCardsAPI.Controllers;
 public class StockController : ControllerBase
 {
     private readonly AppDbContext _context;
-    
+
     public StockController(AppDbContext context)
     {
         _context = context;
     }
 
+    // Public: buyers browse a seller's stock without logging in.
     [HttpGet("seller/{userId}")]
     public async Task<IActionResult> GetSellerStock(int userId)
     {
         var stock = await _context.SellerStocks
-            .Include(s => s.Card)
             .Where(s => s.UserId == userId)
+            .Select(s => new
+            {
+                s.Id,
+                s.Quantity,
+                s.UserPrice,
+                Card = new
+                {
+                    s.Card!.Id,
+                    s.Card.Name,
+                    s.Card.Code,
+                    s.Card.Version,
+                    s.Card.Rarity,
+                    s.Card.ImageUrl,
+                    s.Card.IsFoil,
+                    s.Card.MarketPrice
+                }
+            })
             .ToListAsync();
-            
+
         return Ok(stock);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> AddOrUpdateStock([FromBody] AddStockDto dto)
     {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        if (!await _context.Cards.AnyAsync(c => c.Id == dto.CardId))
+            return BadRequest("Card not found.");
+
         var stock = await _context.SellerStocks
-            .FirstOrDefaultAsync(s => s.UserId == dto.UserId && s.CardId == dto.CardId);
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.CardId == dto.CardId);
 
         if (stock != null)
         {
@@ -43,7 +68,7 @@ public class StockController : ControllerBase
         {
             stock = new SellerStock
             {
-                UserId = dto.UserId,
+                UserId = userId,
                 CardId = dto.CardId,
                 Quantity = dto.Quantity,
                 UserPrice = dto.Price
@@ -52,6 +77,6 @@ public class StockController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
-        return Ok(stock);
+        return Ok(new { stock.Id, stock.UserId, stock.CardId, stock.Quantity, stock.UserPrice });
     }
 }

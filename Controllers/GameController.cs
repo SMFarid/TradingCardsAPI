@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradingCardsAPI.Data;
@@ -24,6 +25,7 @@ public class GameController : ControllerBase
         return Ok(games);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateGame([FromBody] GameDto dto)
     {

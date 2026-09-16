@@ -122,3 +122,13 @@ D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\TradingCardsAPI.g
 D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\ref\TradingCardsAPI.dll
 D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
 D:\Coding Projects\ECommDemo\TradingCardsAPI\obj\Debug\net10.0\TradingCardsAPI.sourcelink.json
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\BCrypt-Net-Next.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.Bcl.Cryptography.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.Logging.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
+D:\Coding Projects\ECommDemo\TradingCardsAPI\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
