@@ -1,23 +1,41 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace TradingCardsAPI.DTOs;
 
-public class AddStockDto
+public class CreateBundleDto
 {
-    public int CardId { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
+    [Required]
+    public string Name { get; set; } = string.Empty;
 }
 
-public class CreateOrderDto
+public class UpdateBundleDto
 {
-    public int SellerId { get; set; }
-    public List<OrderItemDto> Items { get; set; } = new();
+    public string? Name { get; set; }
+    public bool? IsPublic { get; set; }
 }
 
-public class OrderItemDto
+public class ImportCollectionsDto
 {
-    public int CardId { get; set; }
-    public int Quantity { get; set; }
-    public decimal Price { get; set; }
+    [Required]
+    public List<int> CollectionIds { get; set; } = new();
+}
+
+public class UpdateBundleCardDto
+{
+    public decimal? Price { get; set; }
+    public int? Quantity { get; set; }
+}
+
+public class CheckoutDto
+{
+    [Required]
+    public List<CheckoutItemDto> Items { get; set; } = new();
+}
+
+public class CheckoutItemDto
+{
+    public int BundleCardId { get; set; }
+    public int Quantity { get; set; } = 1;
 }
 
 public class UpdateOrderStatusDto

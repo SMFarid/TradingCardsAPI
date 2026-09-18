@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TradingCardsAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+129d24673b9d09923e9d825f3b4e1fd5860f7ec3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e47f5ed2c4903cc4513e1147882bdf8b1dc93ad8")]
 [assembly: System.Reflection.AssemblyProductAttribute("TradingCardsAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TradingCardsAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

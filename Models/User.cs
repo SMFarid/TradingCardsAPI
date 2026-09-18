@@ -16,7 +16,7 @@ public class User
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
 
-    public ICollection<SellerStock>? SellerStocks { get; set; }
     public ICollection<Order>? BuyerOrders { get; set; }
     public ICollection<Order>? SellerOrders { get; set; }
+    public ICollection<Bundle>? Bundles { get; set; }
 }

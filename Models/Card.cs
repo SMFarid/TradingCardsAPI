@@ -21,5 +21,4 @@ public class Card
     [Column(TypeName = "decimal(18,2)")]
     public decimal? MarketPrice { get; set; }
 
-    public ICollection<SellerStock>? SellerStocks { get; set; }
 }

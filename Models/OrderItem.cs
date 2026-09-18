@@ -13,6 +13,11 @@ public class OrderItem
     public int CardId { get; set; }
     public Card? Card { get; set; }
 
+    /// <summary>The bundle listing this item was bought from; used to decrement
+    /// its quantity when the order completes. Null if the listing was deleted.</summary>
+    public int? BundleCardId { get; set; }
+    public BundleCard? BundleCard { get; set; }
+
     public int Quantity { get; set; } = 1;
 
     [Column(TypeName = "decimal(18,2)")]
