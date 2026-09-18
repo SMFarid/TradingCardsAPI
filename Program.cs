@@ -8,6 +8,13 @@ using TradingCardsAPI.Services;
 var builder = WebApplication.CreateBuilder(args);
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
+// Hosting platforms (Render, Railway, Fly, ...) inject the port to listen on.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -66,7 +73,8 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+// HTTPS is terminated by the hosting platform in production; redirecting
+// here would fight the reverse proxy (and dev runs plain HTTP anyway).
 app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthentication();
 app.UseAuthorization();
