@@ -59,9 +59,29 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(ResolveConnectionString(builder.Configuration)));
 
 var app = builder.Build();
+
+// Managed databases start empty, so bring the schema up to date on boot.
+// Failing fast here surfaces a misconfigured database in the deploy logs
+// instead of as mysterious 500s on every request.
+using (var scope = app.Services.CreateScope())
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        logger.LogInformation("Database migrations applied.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "Database unavailable or migrations failed. "
+            + "Check the DATABASE_URL / ConnectionStrings__DefaultConnection setting.");
+        throw;
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -81,4 +101,49 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/", () => "Trading Cards API is running!");
 
+// Lets a deployment be checked without digging through platform logs.
+// Reports whether the database is reachable without revealing its details.
+app.MapGet("/health", async (AppDbContext db) =>
+{
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        return Results.Ok(new { status = canConnect ? "ok" : "degraded", database = canConnect });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new { status = "error", database = false, reason = ex.GetType().Name });
+    }
+});
+
 app.Run();
+
+/// <summary>
+/// Managed Postgres providers (Render, Railway, Heroku) expose a URL-style
+/// connection string, which Npgsql cannot parse; convert it to keyword form.
+/// Falls back to the configured connection string for local development.
+/// </summary>
+static string? ResolveConnectionString(IConfiguration config)
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (string.IsNullOrWhiteSpace(databaseUrl) || !databaseUrl.Contains("://"))
+        return config.GetConnectionString("DefaultConnection");
+
+    var uri = new Uri(databaseUrl);
+    var credentials = uri.UserInfo.Split(':', 2);
+
+    var connection = new Npgsql.NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(credentials[0]),
+        Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty,
+        // Managed instances require TLS but present certificates this app has
+        // no chain for, so encrypt without validating.
+        SslMode = Npgsql.SslMode.Require,
+        TrustServerCertificate = true,
+    };
+
+    return connection.ConnectionString;
+}
