@@ -6,19 +6,23 @@ no code changes needed):
 
 | Environment variable | Purpose |
 |---|---|
-| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string, e.g. `Host=<host>;Port=5432;Database=TradingCardsDB;Username=<user>;Password=<pass>;SSL Mode=Require` |
+| `DATABASE_URL` | Preferred on managed platforms. The `postgres://user:pass@host/db` URL a provider hands out when you attach a database; the app converts it to Npgsql's keyword format and enables TLS. On Render, add it from the database's **Internal Database URL**. |
+| `ConnectionStrings__DefaultConnection` | Alternative to `DATABASE_URL`, in Npgsql keyword form: `Host=<host>;Port=5432;Database=TradingCardsDB;Username=<user>;Password=<pass>;SSL Mode=Require`. Used only when `DATABASE_URL` is unset. |
 | `Jwt__Key` | JWT signing secret. **Must** be changed from the committed dev value — generate 64+ random characters. Changing it logs every existing session out. |
 | `PORT` | Injected by most hosting platforms (Render/Railway/Fly). The app binds to `http://0.0.0.0:$PORT` automatically when set. Otherwise set `ASPNETCORE_URLS`. |
 | `ASPNETCORE_ENVIRONMENT` | Set to `Production` (disables Swagger UI). |
 
 ## Database
 
-Migrations are applied with `dotnet ef database update` against the production
-connection string, or run it once from your machine:
+Migrations run automatically at startup, so a newly provisioned database gets
+its schema on the first deploy. If the database is unreachable the app logs
+`Database unavailable or migrations failed` and exits, which shows up as a
+failed deploy rather than silent 500s on every request.
 
-```powershell
-$env:ConnectionStrings__DefaultConnection = "<production connection string>"
-dotnet ef database update
+`GET /health` reports whether the database is reachable:
+
+```json
+{ "status": "ok", "database": true }
 ```
 
 ## Outbound traffic
