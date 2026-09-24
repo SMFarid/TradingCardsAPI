@@ -64,8 +64,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 var app = builder.Build();
 
 // Managed databases start empty, so bring the schema up to date on boot.
-// Failing fast here surfaces a misconfigured database in the deploy logs
-// instead of as mysterious 500s on every request.
+// A failure here is logged but not fatal: the app still starts so /health can
+// report the problem, rather than the deploy dying with no way to inspect it.
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -78,8 +78,8 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         logger.LogCritical(ex, "Database unavailable or migrations failed. "
-            + "Check the DATABASE_URL / ConnectionStrings__DefaultConnection setting.");
-        throw;
+            + "Check the DATABASE_URL / ConnectionStrings__DefaultConnection setting. "
+            + "The API will start, but data endpoints will fail until this is fixed.");
     }
 }
 
